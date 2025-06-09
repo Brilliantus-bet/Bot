@@ -13,12 +13,18 @@ const headers = {
   "Content-Type": "application/json"
 };
 
-// ✅ Adicionado para validação do webhook
+// Validação básica (GET opcional para testar se está no ar)
 app.get("/responder", (req, res) => {
   res.status(200).send("Responder online");
 });
 
+// Webhook principal
 app.post("/responder", async (req, res) => {
+  // 🔐 Verificação de desafio do ChatBot.com (Webhook Validation)
+  if (req.body.challenge) {
+    return res.send(req.body.challenge); // <- responde o desafio de validação
+  }
+
   const { chat_id, hashtag } = req.body;
 
   if (!chat_id || !hashtag) {
@@ -26,18 +32,21 @@ app.post("/responder", async (req, res) => {
   }
 
   try {
+    // Busca todas as canned responses
     const cannedRes = await axios.get(`${API_BASE}/configuration/action/list_canned_responses`, {
       headers
     });
 
     const lista = cannedRes.data.responses;
 
+    // Procura a resposta com a hashtag correspondente
     const resposta = lista.find(r => r.tags.includes(hashtag.replace("#", "")));
 
     if (!resposta) {
       return res.status(404).json({ error: `Resposta com a hashtag ${hashtag} não encontrada.` });
     }
 
+    // Envia a resposta para o chat
     await axios.post(
       `${API_BASE}/agent/action/send_event`,
       {
@@ -58,6 +67,7 @@ app.post("/responder", async (req, res) => {
   }
 });
 
+// Inicializa o servidor
 app.listen(3000, () => {
   console.log("🚀 Servidor rodando na porta 3000");
 });
