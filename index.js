@@ -3,8 +3,10 @@ const express = require("express");
 const axios = require("axios");
 const app = express();
 
+// Usar raw body para garantir leitura do challenge (caso necessário)
 app.use(express.json());
 
+// LiveChat API
 const API_BASE = "https://api.livechatinc.com/v3.5";
 const TOKEN = process.env.LIVECHAT_API_TOKEN;
 
@@ -13,16 +15,16 @@ const headers = {
   "Content-Type": "application/json"
 };
 
-// Validação básica (GET opcional para testar se está no ar)
+// Para testes simples
 app.get("/responder", (req, res) => {
-  res.status(200).send("Responder online");
+  res.send("Responder online");
 });
 
-// Webhook principal
+// ✅ Webhook + Validação de Challenge
 app.post("/responder", async (req, res) => {
-  // 🔐 Verificação de desafio do ChatBot.com (Webhook Validation)
+  // 👇 ChatBot.com envia { "challenge": "abc123" } e espera "abc123" (puro)
   if (req.body.challenge) {
-    return res.send(req.body.challenge); // <- responde o desafio de validação
+    return res.status(200).send(req.body.challenge);
   }
 
   const { chat_id, hashtag } = req.body;
@@ -32,21 +34,18 @@ app.post("/responder", async (req, res) => {
   }
 
   try {
-    // Busca todas as canned responses
     const cannedRes = await axios.get(`${API_BASE}/configuration/action/list_canned_responses`, {
       headers
     });
 
     const lista = cannedRes.data.responses;
 
-    // Procura a resposta com a hashtag correspondente
     const resposta = lista.find(r => r.tags.includes(hashtag.replace("#", "")));
 
     if (!resposta) {
       return res.status(404).json({ error: `Resposta com a hashtag ${hashtag} não encontrada.` });
     }
 
-    // Envia a resposta para o chat
     await axios.post(
       `${API_BASE}/agent/action/send_event`,
       {
@@ -67,7 +66,7 @@ app.post("/responder", async (req, res) => {
   }
 });
 
-// Inicializa o servidor
+// Start
 app.listen(3000, () => {
   console.log("🚀 Servidor rodando na porta 3000");
 });
