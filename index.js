@@ -3,7 +3,6 @@ const express = require("express");
 const axios = require("axios");
 const app = express();
 
-// Usar raw body para garantir leitura do challenge (caso necessário)
 app.use(express.json());
 
 // LiveChat API
@@ -20,11 +19,14 @@ app.get("/responder", (req, res) => {
   res.send("Responder online");
 });
 
-// ✅ Webhook + Validação de Challenge
+// Webhook principal + validação do ChatBot.com
 app.post("/responder", async (req, res) => {
-  // 👇 ChatBot.com envia { "challenge": "abc123" } e espera "abc123" (puro)
+  // ✅ Validação de Webhook (Challenge)
   if (req.body.challenge) {
-    return res.status(200).send(req.body.challenge);
+    return res
+      .status(200)
+      .set("Content-Type", "text/plain") // resposta deve ser texto puro!
+      .send(req.body.challenge);
   }
 
   const { chat_id, hashtag } = req.body;
@@ -34,18 +36,21 @@ app.post("/responder", async (req, res) => {
   }
 
   try {
+    // Buscar todas as respostas prontas (canned responses)
     const cannedRes = await axios.get(`${API_BASE}/configuration/action/list_canned_responses`, {
       headers
     });
 
     const lista = cannedRes.data.responses;
 
+    // Encontrar a resposta pela hashtag (sem o #)
     const resposta = lista.find(r => r.tags.includes(hashtag.replace("#", "")));
 
     if (!resposta) {
       return res.status(404).json({ error: `Resposta com a hashtag ${hashtag} não encontrada.` });
     }
 
+    // Enviar a resposta no chat
     await axios.post(
       `${API_BASE}/agent/action/send_event`,
       {
