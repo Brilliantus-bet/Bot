@@ -13,6 +13,11 @@ const headers = {
   "Content-Type": "application/json"
 };
 
+// ✅ Adicionado para validação do webhook
+app.get("/responder", (req, res) => {
+  res.status(200).send("Responder online");
+});
+
 app.post("/responder", async (req, res) => {
   const { chat_id, hashtag } = req.body;
 
@@ -21,21 +26,18 @@ app.post("/responder", async (req, res) => {
   }
 
   try {
-    // Buscar todas as canned responses
     const cannedRes = await axios.get(`${API_BASE}/configuration/action/list_canned_responses`, {
       headers
     });
 
     const lista = cannedRes.data.responses;
 
-    // Procurar a resposta correspondente à hashtag
     const resposta = lista.find(r => r.tags.includes(hashtag.replace("#", "")));
 
     if (!resposta) {
       return res.status(404).json({ error: `Resposta com a hashtag ${hashtag} não encontrada.` });
     }
 
-    // Enviar mensagem no chat com o conteúdo da canned response
     await axios.post(
       `${API_BASE}/agent/action/send_event`,
       {
